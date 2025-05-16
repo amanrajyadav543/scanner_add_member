@@ -1,4 +1,3 @@
-// // main.dart
 // import 'package:flutter/material.dart';
 // import 'package:shared_preferences/shared_preferences.dart';
 // import 'package:mobile_scanner/mobile_scanner.dart';
@@ -22,7 +21,9 @@
 //         '/host': (context) => HostScreen(),
 //         '/create_match': (context) => CreateMatchScreen(),
 //         '/manage_teams': (context) => ManageTeamsScreen(),
+//         '/match_details': (context) => MatchDetailsScreen(),
 //         '/scan_players': (context) => ScanPlayersScreen(),
+//         '/team_players': (context) => TeamPlayersScreen(),
 //       },
 //     );
 //   }
@@ -184,6 +185,12 @@
 //                 data: jsonEncode(_request!.toJson()),
 //                 version: QrVersions.auto,
 //                 size: 200.0,
+//                 foregroundColor: Colors.green, // Custom QR code color
+//                 embeddedImage: AssetImage('assets/images/logo.png'),
+//                 errorCorrectionLevel: QrErrorCorrectLevel.H,
+//                 embeddedImageStyle: QrEmbeddedImageStyle(
+//                   size: Size(40, 40), // Adjust logo size as needed
+//                 ),
 //               ),
 //             ],
 //           ],
@@ -279,11 +286,109 @@
 //               return ListTile(
 //                 title: Text(match.name),
 //                 onTap: () {
-//                   Navigator.pushNamed(context, '/scan_players',
+//                   Navigator.pushNamed(context, '/match_details',
 //                       arguments: match.id);
 //                 },
 //               );
 //             }).toList(),
+//           );
+//         },
+//       ),
+//     );
+//   }
+// }
+//
+// // Match Details Screen
+// class MatchDetailsScreen extends StatelessWidget {
+//   @override
+//   Widget build(BuildContext context) {
+//     String matchId = ModalRoute.of(context)!.settings.arguments as String;
+//     return Scaffold(
+//       appBar: AppBar(title: Text('Match Details')),
+//       body: FutureBuilder<List<Match>>(
+//         future: LocalStorage.getMatches(),
+//         builder: (context, snapshot) {
+//           if (!snapshot.hasData) {
+//             return Center(child: CircularProgressIndicator());
+//           }
+//           final match = snapshot.data!.firstWhere((m) => m.id == matchId);
+//           return Padding(
+//             padding: EdgeInsets.all(16.0),
+//             child: Column(
+//               crossAxisAlignment: CrossAxisAlignment.start,
+//               children: [
+//                 Text('Match: ${match.name}', style: TextStyle(fontSize: 20)),
+//                 SizedBox(height: 16),
+//                 ElevatedButton(
+//                   onPressed: () =>
+//                       Navigator.pushNamed(context, '/scan_players', arguments: matchId),
+//                   child: Text('Add Players'),
+//                 ),
+//                 SizedBox(height: 16),
+//                 Text('Teams:', style: TextStyle(fontSize: 18)),
+//                 ListTile(
+//                   title: Text('Team 1 (${match.team1.length}/11)'),
+//                   onTap: () {
+//                     Navigator.pushNamed(context, '/team_players',
+//                         arguments: {'matchId': matchId, 'team': 'team1'});
+//                   },
+//                 ),
+//                 ListTile(
+//                   title: Text('Team 2 (${match.team2.length}/11)'),
+//                   onTap: () {
+//                     Navigator.pushNamed(context, '/team_players',
+//                         arguments: {'matchId': matchId, 'team': 'team2'});
+//                   },
+//                 ),
+//               ],
+//             ),
+//           );
+//         },
+//       ),
+//     );
+//   }
+// }
+//
+// // Team Players Screen
+// class TeamPlayersScreen extends StatelessWidget {
+//   @override
+//   Widget build(BuildContext context) {
+//     final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+//     String matchId = args['matchId'];
+//     String team = args['team'];
+//
+//     return Scaffold(
+//       appBar: AppBar(title: Text('$team Players')),
+//       body: FutureBuilder<List<Match>>(
+//         future: LocalStorage.getMatches(),
+//         builder: (context, matchSnapshot) {
+//           if (!matchSnapshot.hasData) {
+//             return Center(child: CircularProgressIndicator());
+//           }
+//           final match = matchSnapshot.data!.firstWhere((m) => m.id == matchId);
+//           final playerIds = team == 'team1' ? match.team1 : match.team2;
+//
+//           return FutureBuilder<List<PlayRequest>>(
+//             future: LocalStorage.getRequests(),
+//             builder: (context, requestSnapshot) {
+//               if (!requestSnapshot.hasData) {
+//                 return Center(child: CircularProgressIndicator());
+//               }
+//               final players = requestSnapshot.data!
+//                   .where((r) => playerIds.contains(r.playerId))
+//                   .toList();
+//
+//               return ListView.builder(
+//                 itemCount: players.length,
+//                 itemBuilder: (context, index) {
+//                   final player = players[index];
+//                   return ListTile(
+//                     title: Text(player.name),
+//                     subtitle: Text('Player ID: ${player.playerId}'),
+//                   );
+//                 },
+//               );
+//             },
 //           );
 //         },
 //       ),
@@ -314,6 +419,12 @@
 //       );
 //       matches[matches.indexWhere((m) => m.id == matchId)] = updatedMatch;
 //       await LocalStorage.saveMatches(matches);
+//       // Ensure the request is stored for later retrieval
+//       final requests = await LocalStorage.getRequests();
+//       if (!requests.any((r) => r.playerId == request.playerId)) {
+//         requests.add(request);
+//         await LocalStorage.saveRequests(requests);
+//       }
 //       ScaffoldMessenger.of(context)
 //           .showSnackBar(SnackBar(content: Text('Player added to $team')));
 //     } else {
@@ -388,8 +499,6 @@
 // }
 
 
-
-// main.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -577,6 +686,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 data: jsonEncode(_request!.toJson()),
                 version: QrVersions.auto,
                 size: 200.0,
+                foregroundColor: Colors.green, // Custom QR code color
+                embeddedImage: AssetImage('assets/images/logo.png'),
+                errorCorrectionLevel: QrErrorCorrectLevel.H,
+                embeddedImageStyle: QrEmbeddedImageStyle(
+                  size: Size(40, 40), // Adjust logo size as needed
+                ),
               ),
             ],
           ],
@@ -790,6 +905,10 @@ class ScanPlayersScreen extends StatefulWidget {
 
 class _ScanPlayersScreenState extends State<ScanPlayersScreen> {
   MobileScannerController scannerController = MobileScannerController();
+  final _playerIdController = TextEditingController();
+  final _nameController = TextEditingController();
+  PlayRequest? _scannedRequest;
+  bool _isScannerActive = true;
 
   Future<void> _acceptPlayer(PlayRequest request, String matchId, String team) async {
     final matches = await LocalStorage.getMatches();
@@ -811,11 +930,25 @@ class _ScanPlayersScreenState extends State<ScanPlayersScreen> {
         requests.add(request);
         await LocalStorage.saveRequests(requests);
       }
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Player added to $team')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Player added to $team')));
+      setState(() {
+        _scannedRequest = null;
+        _playerIdController.clear();
+        _nameController.clear();
+        _isScannerActive = true; // Reactivate scanner after assignment
+        scannerController.start();
+      });
     } else {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('$team is full')));
+      setState(() {
+        _scannedRequest = null;
+        _playerIdController.clear();
+        _nameController.clear();
+        _isScannerActive = true; // Reactivate scanner
+        scannerController.start();
+      });
     }
   }
 
@@ -830,39 +963,20 @@ class _ScanPlayersScreenState extends State<ScanPlayersScreen> {
             child: MobileScanner(
               controller: scannerController,
               onDetect: (barcodeCapture) {
+                if (!_isScannerActive) return; // Prevent multiple scans
                 final List<Barcode> barcodes = barcodeCapture.barcodes;
                 for (final barcode in barcodes) {
                   if (barcode.rawValue != null) {
                     try {
                       final json = jsonDecode(barcode.rawValue!);
                       final request = PlayRequest.fromJson(json);
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: Text('Add Player'),
-                          content: Text('Add ${request.name} to a team?'),
-                          actions: [
-                            TextButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                                _acceptPlayer(request, matchId, 'team1');
-                              },
-                              child: Text('Team 1'),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                                _acceptPlayer(request, matchId, 'team2');
-                              },
-                              child: Text('Team 2'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: Text('Cancel'),
-                            ),
-                          ],
-                        ),
-                      );
+                      setState(() {
+                        _scannedRequest = request;
+                        _playerIdController.text = request.playerId;
+                        _nameController.text = request.name;
+                        _isScannerActive = false; // Pause scanner
+                        scannerController.stop();
+                      });
                     } catch (e) {
                       ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text('Invalid QR code')));
@@ -872,6 +986,56 @@ class _ScanPlayersScreenState extends State<ScanPlayersScreen> {
               },
             ),
           ),
+          if (_scannedRequest != null) ...[
+            Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Scanned Player Details',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  SizedBox(height: 8),
+                  TextFormField(
+                    controller: _playerIdController,
+                    decoration: InputDecoration(labelText: 'Player ID'),
+                    readOnly: true,
+                  ),
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: InputDecoration(labelText: 'Player Name'),
+                    readOnly: true,
+                  ),
+                  SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () => _acceptPlayer(_scannedRequest!, matchId, 'team1'),
+                        child: Text('Team 1'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => _acceptPlayer(_scannedRequest!, matchId, 'team2'),
+                        child: Text('Team 2'),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _scannedRequest = null;
+                        _playerIdController.clear();
+                        _nameController.clear();
+                        _isScannerActive = true;
+                        scannerController.start();
+                      });
+                    },
+                    child: Text('Cancel'),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -880,6 +1044,8 @@ class _ScanPlayersScreenState extends State<ScanPlayersScreen> {
   @override
   void dispose() {
     scannerController.dispose();
+    _playerIdController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 }
